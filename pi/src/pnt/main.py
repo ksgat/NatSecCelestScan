@@ -88,7 +88,7 @@ class NavigationSystem:
 
         self.context.loop_counter += 1
         self.context.last_absolute_fix_age_s = now - self._last_absolute_fix_time
-        self.context.debug = {
+        self.context.debug = {f
             "mode": self.context.mode.value,
             "vo_confidence": vo.confidence,
             "geo_confidence": geo.confidence,

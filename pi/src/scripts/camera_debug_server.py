@@ -4,7 +4,6 @@ import argparse
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
 
 import cv2
 import numpy as np
@@ -40,9 +39,7 @@ class CameraStream:
 
     def get_frame(self):
         with self._lock:
-            if self._frame is None:
-                return None
-            return self._frame.copy()
+            return None if self._frame is None else self._frame.copy()
 
     def status(self) -> dict[str, object]:
         return {
@@ -91,36 +88,87 @@ def placeholder_frame(label: str, width: int = 640, height: int = 480):
     return frame
 
 
+def build_status(cam0: CameraStream, cam1: CameraStream) -> str:
+    s0 = cam0.status()
+    s1 = cam1.status()
+    return (
+        f"cam0: ok={s0['ok']} error={s0['error']} size={s0['width']}x{s0['height']}\n"
+        f"cam1: ok={s1['ok']} error={s1['error']} size={s1['width']}x{s1['height']}\n"
+        f"time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+
+
 class CameraDebugHandler(BaseHTTPRequestHandler):
-    routes: dict[str, Callable[[], bytes]] = {}
-    status_provider: Callable[[], str] | None = None
+    cam0 = None
+    cam1 = None
 
     def do_GET(self) -> None:
         if self.path == "/":
-            body = self._index_html().encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_html(self._index_html())
             return
-
         if self.path == "/health":
-            text = self.status_provider() if self.status_provider else "no status"
-            body = text.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_text(build_status(type(self).cam0, type(self).cam1))
             return
-
-        producer = self.routes.get(self.path)
-        if producer is None:
-            self.send_error(404, "not found")
+        if self.path == "/cam0.jpg":
+            self._send_jpeg(self._cam0_frame())
             return
+        if self.path == "/cam1.jpg":
+            self._send_jpeg(self._cam1_frame())
+            return
+        if self.path == "/stereo.jpg":
+            self._send_jpeg(self._stereo_frame())
+            return
+        if self.path == "/stream/cam0":
+            self._send_mjpeg(self._cam0_frame)
+            return
+        if self.path == "/stream/cam1":
+            self._send_mjpeg(self._cam1_frame)
+            return
+        if self.path == "/stream/stereo":
+            self._send_mjpeg(self._stereo_frame)
+            return
+        self.send_error(404, "not found")
 
-        body = producer()
+    def log_message(self, format: str, *args) -> None:
+        return
+
+    def _cam0_frame(self):
+        frame = type(self).cam0.get_frame()
+        return frame if frame is not None else placeholder_frame("cam0 unavailable")
+
+    def _cam1_frame(self):
+        frame = type(self).cam1.get_frame()
+        return frame if frame is not None else placeholder_frame("cam1 unavailable")
+
+    def _stereo_frame(self):
+        left = type(self).cam0.get_frame()
+        right = type(self).cam1.get_frame()
+        if left is None and right is None:
+            return placeholder_frame("both cameras unavailable")
+        if left is None:
+            left = placeholder_frame("cam0 unavailable", type(self).cam0.width, type(self).cam0.height)
+        if right is None:
+            right = placeholder_frame("cam1 unavailable", type(self).cam1.width, type(self).cam1.height)
+        return np.hstack([left, right])
+
+    def _send_html(self, html: str) -> None:
+        body = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_text(self, text: str) -> None:
+        body = text.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_jpeg(self, frame) -> None:
+        body = encode_jpeg(frame)
         self.send_response(200)
         self.send_header("Content-Type", "image/jpeg")
         self.send_header("Content-Length", str(len(body)))
@@ -128,8 +176,26 @@ class CameraDebugHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, format: str, *args) -> None:
-        return
+    def _send_mjpeg(self, frame_provider) -> None:
+        boundary = "frame"
+        self.send_response(200)
+        self.send_header("Age", "0")
+        self.send_header("Cache-Control", "no-cache, private")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Content-Type", f"multipart/x-mixed-replace; boundary=--{boundary}")
+        self.end_headers()
+        try:
+            while True:
+                frame = frame_provider()
+                jpg = encode_jpeg(frame)
+                self.wfile.write(f"--{boundary}\r\n".encode("ascii"))
+                self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                self.wfile.write(f"Content-Length: {len(jpg)}\r\n\r\n".encode("ascii"))
+                self.wfile.write(jpg)
+                self.wfile.write(b"\r\n")
+                time.sleep(0.08)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     @staticmethod
     def _index_html() -> str:
@@ -145,40 +211,20 @@ class CameraDebugHandler(BaseHTTPRequestHandler):
     img { width: 100%; height: auto; border-radius: 4px; background: #000; }
     code { color: #8fd3ff; }
   </style>
-  <script>
-    function tick() {
-      const ts = Date.now();
-      document.getElementById('cam0').src = '/cam0.jpg?t=' + ts;
-      document.getElementById('cam1').src = '/cam1.jpg?t=' + ts;
-      document.getElementById('stereo').src = '/stereo.jpg?t=' + ts;
-      fetch('/health').then(r => r.text()).then(t => document.getElementById('health').textContent = t);
-    }
-    setInterval(tick, 300);
-    window.onload = tick;
-  </script>
 </head>
 <body>
   <h1>Camera Debug</h1>
-  <p>Endpoints: <code>/cam0.jpg</code> <code>/cam1.jpg</code> <code>/stereo.jpg</code> <code>/health</code></p>
-  <pre id="health">loading...</pre>
+  <p>Still images: <code>/cam0.jpg</code> <code>/cam1.jpg</code> <code>/stereo.jpg</code></p>
+  <p>MJPEG streams: <code>/stream/cam0</code> <code>/stream/cam1</code> <code>/stream/stereo</code></p>
+  <p><a href="/health" target="_blank">health</a></p>
   <div class="grid">
-    <div class="card"><h2>cam0</h2><img id="cam0" alt="cam0"></div>
-    <div class="card"><h2>cam1</h2><img id="cam1" alt="cam1"></div>
-    <div class="card"><h2>stereo</h2><img id="stereo" alt="stereo"></div>
+    <div class="card"><h2>cam0</h2><img src="/stream/cam0" alt="cam0"></div>
+    <div class="card"><h2>cam1</h2><img src="/stream/cam1" alt="cam1"></div>
+    <div class="card"><h2>stereo</h2><img src="/stream/stereo" alt="stereo"></div>
   </div>
 </body>
 </html>
 """
-
-
-def build_status(cam0: CameraStream, cam1: CameraStream) -> str:
-    s0 = cam0.status()
-    s1 = cam1.status()
-    return (
-        f"cam0: ok={s0['ok']} error={s0['error']} size={s0['width']}x{s0['height']}\n"
-        f"cam1: ok={s1['ok']} error={s1['error']} size={s1['width']}x{s1['height']}\n"
-        f"time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
-    )
 
 
 def main() -> None:
@@ -195,34 +241,8 @@ def main() -> None:
     cam1 = CameraStream(args.cam1, args.width, args.height)
     cam0.start()
     cam1.start()
-
-    def cam0_jpg() -> bytes:
-        frame = cam0.get_frame()
-        return encode_jpeg(frame if frame is not None else placeholder_frame("cam0 unavailable"))
-
-    def cam1_jpg() -> bytes:
-        frame = cam1.get_frame()
-        return encode_jpeg(frame if frame is not None else placeholder_frame("cam1 unavailable"))
-
-    def stereo_jpg() -> bytes:
-        left = cam0.get_frame()
-        right = cam1.get_frame()
-        if left is None and right is None:
-            merged = placeholder_frame("both cameras unavailable")
-        else:
-            if left is None:
-                left = placeholder_frame("cam0 unavailable", args.width, args.height)
-            if right is None:
-                right = placeholder_frame("cam1 unavailable", args.width, args.height)
-            merged = np.hstack([left, right])
-        return encode_jpeg(merged)
-
-    CameraDebugHandler.routes = {
-        "/cam0.jpg": cam0_jpg,
-        "/cam1.jpg": cam1_jpg,
-        "/stereo.jpg": stereo_jpg,
-    }
-    CameraDebugHandler.status_provider = lambda: build_status(cam0, cam1)
+    CameraDebugHandler.cam0 = cam0
+    CameraDebugHandler.cam1 = cam1
 
     server = ThreadingHTTPServer((args.host, args.port), CameraDebugHandler)
     print(f"camera debug server listening on http://{args.host}:{args.port}")
