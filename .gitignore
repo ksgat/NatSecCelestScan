@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+
+.DS_Store
+Thumbs.db
+
+*.csv
+*.log
+
+external/tetra3/debug/
+external/tetra3/__pycache__/
+external/tetra3/.pytest_cache/
+
+pi/src/assets/test_images/night_sky/*
+!pi/src/assets/test_images/night_sky/README.md
+pi/src/assets/test_images/ground/*
+!pi/src/assets/test_images/ground/README.md

@@ -1,0 +1,28 @@
+{
+  "database": "assets/tetra3/primary_database.npz",
+  "fallback_database": "assets/tetra3/fallback_database.npz",
+  "reference_database": "assets/tetra3/default_database.npz",
+  "fov_estimate": 70.0,
+  "fov_max_error": 10.5,
+  "pattern_checking_stars": 8,
+  "match_radius": 0.01,
+  "match_threshold": 0.001,
+  "solve_timeout": 750,
+  "distortion": 0,
+  "database_generation": {
+    "star_catalog": "bsc5",
+    "max_fov": 70.0,
+    "pattern_stars_per_fov": 10,
+    "verification_stars_per_fov": 20,
+    "star_max_magnitude": 7.0
+  },
+  "extraction": {
+    "sigma": 2,
+    "filtsize": 25,
+    "min_area": 3,
+    "max_area": 200,
+    "max_axis_ratio": 2.5,
+    "binary_open": true,
+    "max_returned": 64
+  }
+}

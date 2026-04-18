@@ -1,0 +1,14 @@
+{
+  "description": "Replace with calibrated camera-to-body transform for celestial alignment.",
+  "cam0_up": {
+    "roll_deg": 0.0,
+    "pitch_deg": 0.0,
+    "yaw_deg": 0.0
+  },
+  "cam0_down": {
+    "roll_deg": 0.0,
+    "pitch_deg": 0.0,
+    "yaw_deg": 0.0
+  }
+}
+

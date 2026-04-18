@@ -1,0 +1,18 @@
+{
+  "description": "Replace with calibrated camera intrinsics for upward and downward cameras.",
+  "cam0": {
+    "fx": 0.0,
+    "fy": 0.0,
+    "cx": 0.0,
+    "cy": 0.0,
+    "distortion": [0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  "cam1": {
+    "fx": 0.0,
+    "fy": 0.0,
+    "cx": 0.0,
+    "cy": 0.0,
+    "distortion": [0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+}
+

@@ -1,0 +1,16 @@
+2026-04-18 14:38:17,982:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=C:\Users\imalw\Downloads\NatSecCelestScan\pi\src\assets\tetra3\primary_database.npz
+2026-04-18 14:38:17,982:tetra3.Tetra3-DEBUG: Trying to load database
+2026-04-18 14:38:17,982:tetra3.Tetra3-DEBUG: Got load database with: C:\Users\imalw\Downloads\NatSecCelestScan\pi\src\assets\tetra3\primary_database.npz
+2026-04-18 14:38:17,982:tetra3.Tetra3-DEBUG: Not a string, use as path directly
+2026-04-18 14:38:17,982:tetra3.Tetra3-INFO: Loading database from: C:\Users\imalw\Downloads\NatSecCelestScan\pi\src\assets\tetra3\primary_database.npz
+2026-04-18 14:38:17,984:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacking properties
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 25
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 70.0
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 20
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 7.0
+2026-04-18 14:38:18,010:tetra3.Tetra3-DEBUG: Unpacked star_min_separation to: 0.05

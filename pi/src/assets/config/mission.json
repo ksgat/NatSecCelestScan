@@ -1,0 +1,10 @@
+{
+  "mission_bounds": {
+    "min_lat": 37.0,
+    "max_lat": 37.01,
+    "min_lon": -122.01,
+    "max_lon": -122.0
+  },
+  "notes": "Replace with actual mission-area bounds and navigation overrides."
+}
+
