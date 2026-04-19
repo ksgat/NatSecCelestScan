@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" role="img" aria-labelledby="title desc">
+  <title id="title">Unit photo placeholder</title>
+  <desc id="desc">Placeholder graphic for a real Kestrel unit photo.</desc>
+  <rect width="900" height="700" fill="#f4f1e7"/>
+  <rect x="54" y="54" width="792" height="592" fill="#fffdf8" stroke="#d7d2c3" stroke-width="4"/>
+  <g transform="translate(160 190)">
+    <rect x="0" y="40" width="420" height="170" fill="#18211e"/>
+    <circle cx="48" cy="34" r="34" fill="#195a74"/>
+    <circle cx="374" cy="34" r="34" fill="#ca6e2d"/>
+    <rect x="118" y="84" width="182" height="82" fill="#f4f1e7"/>
+    <rect x="458" y="86" width="76" height="124" fill="#ffffff" stroke="#d7d2c3" stroke-width="4"/>
+    <line x1="534" y1="150" x2="598" y2="118" stroke="#ca6e2d" stroke-width="8"/>
+  </g>
+  <text x="84" y="108" fill="#5f6964" font-family="IBM Plex Mono, monospace" font-size="24">MEDIA SLOT / UNIT PHOTO</text>
+  <text x="84" y="586" fill="#18211e" font-family="Space Grotesk, sans-serif" font-size="42" font-weight="700">Drop in a real rig photo here</text>
+  <text x="84" y="628" fill="#5f6964" font-family="Space Grotesk, sans-serif" font-size="24">Top-down build shot, beauty angle, or field carry photo.</text>
+</svg>

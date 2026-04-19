@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kestrel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./site.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand-mark">Kestrel</p>
+        <p class="brand-name">Visual-Inertial Localization Unit</p>
+      </div>
+      <nav class="site-nav">
+        <a href="./index.html" aria-current="page">Overview</a>
+        <a href="./technical.html">Technical</a>
+        <a href="./dashboard.html">Dashboard</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="panel hero-copy">
+        <p class="eyebrow">Hackathon Build</p>
+        <h1>Kestrel</h1>
+        <p class="lede">Kestrel is a compact visual-inertial localization unit designed to output GPS-style telemetry from cameras, IMU data, and ground-to-map matching when conventional positioning is unavailable, degraded, or intentionally omitted from the demo path.</p>
+        <div class="cta-row">
+          <a class="button" href="./dashboard.html">Open Demo Dashboard</a>
+          <a class="button-secondary" href="./technical.html">Read The Pipeline</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <img src="./assets/hero-rig.svg" alt="Kestrel rig placeholder illustration">
+      </div>
+    </section>
+
+    <section class="stat-grid">
+      <article class="stat-card">
+        <p class="stat-label">Primary Stack</p>
+        <p class="stat-value">VO + IMU + Geo Match</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Output</p>
+        <p class="stat-value">NMEA-like Pose Stream</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Runtime Philosophy</p>
+        <p class="stat-value">Pi-first, Classical, Defensible</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">What It Is</p>
+          <h2 class="section-title">A fieldable localization prototype</h2>
+        </div>
+      </div>
+      <div class="grid-3">
+        <article class="card">
+          <h3>Rig</h3>
+          <p>The physical unit combines a downward-facing camera path, an IMU, stereo-derived scale, and a local compute node that emits navigation-style telemetry to a laptop dashboard.</p>
+        </article>
+        <article class="card">
+          <h3>Positioning Approach</h3>
+          <p>Kestrel uses visual odometry for short-horizon motion, stereo for altitude and scale hints, and ground-to-map matching for absolute correction against pre-cached orthophoto imagery.</p>
+        </article>
+        <article class="card">
+          <h3>Demo Shape</h3>
+          <p>The demo centers on a live map view, diagnostics, camera feeds, and NMEA output rather than claims of production-grade autonomy. The emphasis is on a coherent, inspectable technical stack.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Media Slots</p>
+          <h2 class="section-title">Drop in the real unit photos and CAD here later</h2>
+        </div>
+      </div>
+      <div class="image-grid">
+        <article class="image-card">
+          <img src="./assets/unit-placeholder.svg" alt="Unit photo placeholder">
+          <p class="image-caption">Unit photo placeholder. Replace with a rig beauty shot or top-down build photo.</p>
+        </article>
+        <article class="image-card">
+          <img src="./assets/cad-placeholder.svg" alt="CAD placeholder">
+          <p class="image-caption">CAD placeholder. Replace with a render or exploded mechanical overview.</p>
+        </article>
+        <article class="image-card">
+          <img src="./assets/dashboard-placeholder.svg" alt="Dashboard placeholder">
+          <p class="image-caption">Dashboard placeholder. Replace with a real screenshot from your field test.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Kestrel is presented as a visual-inertial localization prototype with GPS-style outputs, not as a finished autonomous navigation product.
+    </footer>
+  </div>
+</body>
+</html>

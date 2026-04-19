@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kestrel Technical Rundown</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./site.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand-mark">Kestrel</p>
+        <p class="brand-name">Technical Pipeline</p>
+      </div>
+      <nav class="site-nav">
+        <a href="./index.html">Overview</a>
+        <a href="./technical.html" aria-current="page">Technical</a>
+        <a href="./dashboard.html">Dashboard</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="panel hero-copy">
+        <p class="eyebrow">System Breakdown</p>
+        <h1>How Kestrel Works</h1>
+        <p class="lede">Kestrel is a visual-inertial localization prototype built around a Pi-class runtime. The core path is intentionally pragmatic: downward imagery, IMU attitude, stereo-derived scale, local map matching, and GPS-style NMEA output streamed to a laptop dashboard.</p>
+        <div class="cta-row">
+          <a class="button" href="./dashboard.html">See The Dashboard</a>
+          <a class="button-secondary" href="./index.html">Back To Overview</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <img src="./assets/dashboard-placeholder.svg" alt="Kestrel dashboard placeholder illustration">
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Pipeline</p>
+          <h2 class="section-title">Sensor inputs to laptop visualization</h2>
+        </div>
+      </div>
+      <div class="pipeline">
+        <article class="pipeline-step">
+          <strong>1</strong>
+          <div>
+            <h3>Sensing</h3>
+            <p>The rig captures downward imagery and IMU data on the Pi. The IMU stabilizes attitude estimation while the camera path supplies ground texture for motion and map matching.</p>
+          </div>
+        </article>
+        <article class="pipeline-step">
+          <strong>2</strong>
+          <div>
+            <h3>Stereo and Scale</h3>
+            <p>Stereo depth is used as a scale and altitude hint. It is not treated as magical truth; it is one of the runtime signals that helps keep motion estimates from floating completely free.</p>
+          </div>
+        </article>
+        <article class="pipeline-step">
+          <strong>3</strong>
+          <div>
+            <h3>Visual Odometry</h3>
+            <p>Frame-to-frame feature tracking estimates short-horizon relative motion. This is the local backbone of the rig when there is enough ground structure to track.</p>
+          </div>
+        </article>
+        <article class="pipeline-step">
+          <strong>4</strong>
+          <div>
+            <h3>Ground-to-Map Match</h3>
+            <p>The runtime compares the live downward frame against pre-cached orthophoto tiles from the mission area. A verified match provides an absolute correction to keep the pose from drifting indefinitely.</p>
+          </div>
+        </article>
+        <article class="pipeline-step">
+          <strong>5</strong>
+          <div>
+            <h3>NMEA Telemetry</h3>
+            <p>The Pi emits GPS-style NMEA sentences plus debug telemetry over the network. The laptop dashboard consumes that stream and shows pose, diagnostics, and camera panes in one view.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Rationale</p>
+          <h2 class="section-title">Why this stack</h2>
+        </div>
+      </div>
+      <div class="grid-3">
+        <article class="card">
+          <h3>Defensible Runtime</h3>
+          <p>The project intentionally favors classical computer vision on the Pi over heavyweight model inference in the critical path. That makes the runtime easier to reason about and easier to demo honestly.</p>
+        </article>
+        <article class="card">
+          <h3>Pre-Cached Region</h3>
+          <p>The map side is standardized into local tiles so the runtime is not tied to any one county or state imagery API. The ugly ingestion work happens before the demo, not during it.</p>
+        </article>
+        <article class="card">
+          <h3>Inspectable Outputs</h3>
+          <p>The dashboard shows pose, NMEA, stereo, VO, geo-match, and raw debug packets at the same time. That keeps the demo transparent instead of turning it into a black-box claim.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Data Products</p>
+          <h2 class="section-title">Runtime outputs and demo artifacts</h2>
+        </div>
+      </div>
+      <div class="grid-2">
+        <article class="card">
+          <h3>Live Outputs</h3>
+          <p>Kestrel produces a live pose estimate, GPS-style NMEA sentences, debug telemetry, and a dashboard map overlay with subsystem diagnostics.</p>
+          <pre class="code-block">$GPGGA,hhmmss,lat,NS,lon,EW,1,10,0.8,61.2,M,,,*CS
+$GPRMC,hhmmss,A,lat,NS,lon,EW,14.8,92.1,ddmmyy,,,*CS</pre>
+        </article>
+        <article class="card">
+          <h3>Replace-This-Later Section</h3>
+          <p>Use this section for your actual build-process notes once you have the field story locked: enclosure assembly, camera mounting, calibration, Pi bring-up, tile ingestion, and final demo wiring.</p>
+          <pre class="code-block">Build notes placeholder:
+- mechanical layout
+- optics and baseline
+- Pi and power path
+- IMU and camera integration
+- field tuning and validation
+- demo workflow</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Visual Slots</p>
+          <h2 class="section-title">Replace these with real project media</h2>
+        </div>
+      </div>
+      <div class="image-grid">
+        <article class="image-card">
+          <img src="./assets/unit-placeholder.svg" alt="Rig photo placeholder">
+          <p class="image-caption">Replace with a real field photo of the assembled unit.</p>
+        </article>
+        <article class="image-card">
+          <img src="./assets/cad-placeholder.svg" alt="CAD placeholder">
+          <p class="image-caption">Replace with the CAD render or a labeled hardware diagram.</p>
+        </article>
+        <article class="image-card">
+          <img src="./assets/hero-rig.svg" alt="System overview placeholder">
+          <p class="image-caption">Replace with a top-level system architecture slide or hero shot.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Kestrel is presented as a prototype localization unit with inspectable outputs and a constrained runtime path, not as a finished autonomous navigation product.
+    </footer>
+  </div>
+</body>
+</html>

@@ -28,6 +28,7 @@ class VerificationResult:
     inlier_ratio: float
     reprojection_error: float
     structural_score: float
+    window_label: str = "full"
 
 
 @dataclass
@@ -37,6 +38,17 @@ class PreparedImage:
     edges: object
     corner_map: object
     corner_count: int
+
+
+@dataclass
+class TileView:
+    image: object
+    north: float
+    south: float
+    east: float
+    west: float
+    meters_per_pixel: float
+    label: str
 
 
 class GeoMatcher:
@@ -71,13 +83,14 @@ class GeoMatcher:
             return self._invalid(seed_lat, seed_lon, attitude.yaw)
 
         best_result: GeoMatchResult | None = None
-        for candidate in candidates:
+        for index, candidate in enumerate(candidates):
             verification = self._verify_candidate(
                 live=live,
                 kp_live=kp_live,
                 des_live=des_live,
                 candidate=candidate,
                 altitude_m=altitude_m,
+                allow_subtiles=index < self._config.subtile_top_tile_count,
             )
             scale_error = self._estimate_scale_error(candidate, altitude_m, live.gray.shape[1])
             confidence = self._combine_confidence(candidate, verification, scale_error)
@@ -99,14 +112,22 @@ class GeoMatcher:
                 candidate_count=len(candidates),
                 verified=verification.valid,
                 structural_score=verification.structural_score,
-                tile_path=str(candidate.path),
+                tile_path=f"{candidate.path} [{verification.window_label}]",
             )
             if best_result is None or self._is_better(result, best_result):
                 best_result = result
 
         return best_result if best_result is not None else self._invalid(seed_lat, seed_lon, attitude.yaw)
 
-    def _verify_candidate(self, live: PreparedImage, kp_live, des_live, candidate: MapTileCandidate, altitude_m: float) -> VerificationResult:
+    def _verify_candidate(
+        self,
+        live: PreparedImage,
+        kp_live,
+        des_live,
+        candidate: MapTileCandidate,
+        altitude_m: float,
+        allow_subtiles: bool,
+    ) -> VerificationResult:
         if not candidate.path.exists():
             return VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
 
@@ -114,63 +135,200 @@ class GeoMatcher:
         if tile_image is None:
             return VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
 
-        tile = self._prepare_tile_image(tile_image, candidate, altitude_m, live.gray.shape[1])
-        kp_tile, des_tile = self._orb.detectAndCompute(tile.feature, None)
-        if des_tile is None or len(kp_tile) < max(12, self._config.verify_min_inliers):
-            return VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
-
-        knn_matches = self._matcher.knnMatch(des_live, des_tile, k=2)
-        good_matches = []
-        for pair in knn_matches:
-            if len(pair) < 2:
+        best_result: VerificationResult | None = None
+        views = self._generate_tile_views(
+            tile_image=tile_image,
+            candidate=candidate,
+            altitude_m=altitude_m,
+            live_width_px=live.gray.shape[1],
+            live_height_px=live.gray.shape[0],
+            allow_subtiles=allow_subtiles,
+        )
+        for view in views:
+            tile = self._prepare_tile_image(view, altitude_m, live.gray.shape[1])
+            kp_tile, des_tile = self._orb.detectAndCompute(tile.feature, None)
+            if des_tile is None or len(kp_tile) < max(12, self._config.verify_min_inliers):
                 continue
-            first, second = pair
-            if first.distance < self._config.match_ratio_test * second.distance:
-                good_matches.append(first)
-        if len(good_matches) < max(8, self._config.verify_min_inliers):
-            return VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
 
-        src_pts = np.float32([kp_live[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp_tile[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-        homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self._config.ransac_reproj_threshold_px)
-        if homography is None or mask is None:
-            return VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
+            knn_matches = self._matcher.knnMatch(des_live, des_tile, k=2)
+            good_matches = []
+            for pair in knn_matches:
+                if len(pair) < 2:
+                    continue
+                first, second = pair
+                if first.distance < self._config.match_ratio_test * second.distance:
+                    good_matches.append(first)
+            if len(good_matches) < max(8, self._config.verify_min_inliers):
+                continue
 
-        inlier_mask = mask.ravel().astype(bool)
-        inlier_count = int(inlier_mask.sum())
-        inlier_ratio = inlier_count / max(1, len(good_matches))
-        if inlier_count < self._config.verify_min_inliers or inlier_ratio < self._config.verify_min_inlier_ratio:
-            return VerificationResult(False, candidate.lat_center, candidate.lon_center, inlier_count, inlier_ratio, 999.0, 0.0)
+            src_pts = np.float32([kp_live[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp_tile[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self._config.ransac_reproj_threshold_px)
+            if homography is None or mask is None:
+                continue
 
-        reprojection_error = self._compute_reprojection_error(src_pts[inlier_mask], dst_pts[inlier_mask], homography)
-        structural_score = self._compute_structural_score(live, tile, homography)
-        height, width = live.gray.shape[:2]
-        center = np.array([[[width * 0.5, height * 0.5]]], dtype=np.float32)
-        projected = cv2.perspectiveTransform(center, homography)
-        px = float(projected[0, 0, 0])
-        py = float(projected[0, 0, 1])
-        tile_h, tile_w = tile.gray.shape[:2]
-        if px < -0.1 * tile_w or px > 1.1 * tile_w or py < -0.1 * tile_h or py > 1.1 * tile_h:
-            return VerificationResult(False, candidate.lat_center, candidate.lon_center, inlier_count, inlier_ratio, reprojection_error, structural_score)
+            inlier_mask = mask.ravel().astype(bool)
+            inlier_count = int(inlier_mask.sum())
+            inlier_ratio = inlier_count / max(1, len(good_matches))
+            if inlier_count < self._config.verify_min_inliers or inlier_ratio < self._config.verify_min_inlier_ratio:
+                candidate_result = VerificationResult(
+                    False,
+                    candidate.lat_center,
+                    candidate.lon_center,
+                    inlier_count,
+                    inlier_ratio,
+                    999.0,
+                    0.0,
+                    view.label,
+                )
+                if best_result is None or self._is_better_verification(candidate_result, best_result):
+                    best_result = candidate_result
+                continue
 
-        px = min(max(px, 0.0), max(1.0, tile_w - 1.0))
-        py = min(max(py, 0.0), max(1.0, tile_h - 1.0))
-        lon = candidate.west + (px / tile_w) * (candidate.east - candidate.west)
-        lat = candidate.north - (py / tile_h) * (candidate.north - candidate.south)
-        return VerificationResult(True, lat, lon, inlier_count, inlier_ratio, reprojection_error, structural_score)
+            reprojection_error = self._compute_reprojection_error(src_pts[inlier_mask], dst_pts[inlier_mask], homography)
+            structural_score = self._compute_structural_score(live, tile, homography)
+            height, width = live.gray.shape[:2]
+            center = np.array([[[width * 0.5, height * 0.5]]], dtype=np.float32)
+            projected = cv2.perspectiveTransform(center, homography)
+            px = float(projected[0, 0, 0])
+            py = float(projected[0, 0, 1])
+            tile_h, tile_w = tile.gray.shape[:2]
+            if px < -0.1 * tile_w or px > 1.1 * tile_w or py < -0.1 * tile_h or py > 1.1 * tile_h:
+                candidate_result = VerificationResult(
+                    False,
+                    candidate.lat_center,
+                    candidate.lon_center,
+                    inlier_count,
+                    inlier_ratio,
+                    reprojection_error,
+                    structural_score,
+                    view.label,
+                )
+                if best_result is None or self._is_better_verification(candidate_result, best_result):
+                    best_result = candidate_result
+                continue
+
+            px = min(max(px, 0.0), max(1.0, tile_w - 1.0))
+            py = min(max(py, 0.0), max(1.0, tile_h - 1.0))
+            lon = view.west + (px / tile_w) * (view.east - view.west)
+            lat = view.north - (py / tile_h) * (view.north - view.south)
+            candidate_result = VerificationResult(
+                True,
+                lat,
+                lon,
+                inlier_count,
+                inlier_ratio,
+                reprojection_error,
+                structural_score,
+                view.label,
+            )
+            if best_result is None or self._is_better_verification(candidate_result, best_result):
+                best_result = candidate_result
+
+        return best_result or VerificationResult(False, candidate.lat_center, candidate.lon_center, 0, 0.0, 999.0, 0.0)
 
     def _prepare_live_image(self, frame):
         gray = self._to_gray(frame)
         return self._prepare_image(gray)
 
-    def _prepare_tile_image(self, tile_image, candidate: MapTileCandidate, altitude_m: float, live_width_px: int):
-        gray = self._to_gray(tile_image)
-        scale = self._expected_tile_scale(candidate, altitude_m, live_width_px)
+    def _prepare_tile_image(self, view: TileView, altitude_m: float, live_width_px: int):
+        gray = self._to_gray(view.image)
+        scale = self._expected_tile_scale(view.meters_per_pixel, altitude_m, live_width_px)
         if abs(scale - 1.0) > 0.15:
             new_w = int(max(64, min(2048, round(gray.shape[1] * scale))))
             new_h = int(max(64, min(2048, round(gray.shape[0] * scale))))
             gray = cv2.resize(gray, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
         return self._prepare_image(gray)
+
+    def _generate_tile_views(
+        self,
+        *,
+        tile_image,
+        candidate: MapTileCandidate,
+        altitude_m: float,
+        live_width_px: int,
+        live_height_px: int,
+        allow_subtiles: bool,
+    ) -> list[TileView]:
+        tile_h, tile_w = tile_image.shape[:2]
+        views = [
+            TileView(
+                image=tile_image,
+                north=candidate.north,
+                south=candidate.south,
+                east=candidate.east,
+                west=candidate.west,
+                meters_per_pixel=candidate.meters_per_pixel,
+                label="full",
+            )
+        ]
+        if not self._config.subtile_search_enabled or not allow_subtiles:
+            return views
+
+        expected = self._expected_crop_size_px(candidate.meters_per_pixel, altitude_m, live_width_px, live_height_px)
+        if expected is None:
+            return views
+        expected_w, expected_h = expected
+        if expected_w >= tile_w * 0.94 and expected_h >= tile_h * 0.94:
+            return views
+
+        seen: set[tuple[int, int, int, int]] = set()
+        for factor in self._config.subtile_scale_factors:
+            win_w = int(min(tile_w, max(min(tile_w, self._config.subtile_min_size_px), round(expected_w * factor))))
+            win_h = int(min(tile_h, max(min(tile_h, self._config.subtile_min_size_px), round(expected_h * factor))))
+            if win_w >= tile_w and win_h >= tile_h:
+                continue
+            for y0 in self._window_origins(tile_h, win_h):
+                for x0 in self._window_origins(tile_w, win_w):
+                    x1 = min(tile_w, x0 + win_w)
+                    y1 = min(tile_h, y0 + win_h)
+                    key = (x0, y0, x1, y1)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    crop = tile_image[y0:y1, x0:x1]
+                    west = candidate.west + (x0 / tile_w) * (candidate.east - candidate.west)
+                    east = candidate.west + (x1 / tile_w) * (candidate.east - candidate.west)
+                    north = candidate.north - (y0 / tile_h) * (candidate.north - candidate.south)
+                    south = candidate.north - (y1 / tile_h) * (candidate.north - candidate.south)
+                    views.append(
+                        TileView(
+                            image=crop,
+                            north=north,
+                            south=south,
+                            east=east,
+                            west=west,
+                            meters_per_pixel=candidate.meters_per_pixel,
+                            label=f"crop x={x0}:{x1} y={y0}:{y1}",
+                        )
+                    )
+        return views
+
+    @staticmethod
+    def _window_origins(size_px: int, window_px: int) -> list[int]:
+        if window_px >= size_px:
+            return [0]
+        max_origin = size_px - window_px
+        origins = [0, max_origin // 2, max_origin]
+        return sorted({max(0, min(max_origin, origin)) for origin in origins})
+
+    def _expected_crop_size_px(
+        self,
+        meters_per_pixel: float,
+        altitude_m: float,
+        live_width_px: int,
+        live_height_px: int,
+    ) -> tuple[int, int] | None:
+        if altitude_m <= 0.0 or live_width_px <= 0 or live_height_px <= 0 or meters_per_pixel <= 1e-6:
+            return None
+        live_ground_width_m = 2.0 * altitude_m * tan(radians(self._config.down_camera_fov_deg) * 0.5)
+        if live_ground_width_m <= 1e-6:
+            return None
+        aspect_ratio = live_height_px / max(1.0, float(live_width_px))
+        live_ground_height_m = live_ground_width_m * aspect_ratio
+        crop_width_px = int(round(live_ground_width_m / meters_per_pixel))
+        crop_height_px = int(round(live_ground_height_m / meters_per_pixel))
+        return crop_width_px, crop_height_px
 
     def _prepare_image(self, gray) -> PreparedImage:
         gray = self._clahe.apply(gray)
@@ -216,7 +374,7 @@ class GeoMatcher:
         corner_map = cv2.dilate(corner_map, np.ones((5, 5), dtype=np.uint8), iterations=1)
         return corner_map, int(len(corners))
 
-    def _expected_tile_scale(self, candidate: MapTileCandidate, altitude_m: float, live_width_px: int) -> float:
+    def _expected_tile_scale(self, meters_per_pixel: float, altitude_m: float, live_width_px: int) -> float:
         if altitude_m <= 0.0 or live_width_px <= 0:
             return 1.0
         live_ground_width_m = 2.0 * altitude_m * tan(radians(self._config.down_camera_fov_deg) * 0.5)
@@ -225,7 +383,7 @@ class GeoMatcher:
         live_mpp = live_ground_width_m / live_width_px
         if live_mpp <= 1e-6:
             return 1.0
-        scale = candidate.meters_per_pixel / live_mpp
+        scale = meters_per_pixel / live_mpp
         return min(4.0, max(0.5, scale))
 
     @staticmethod
@@ -303,6 +461,18 @@ class GeoMatcher:
         if expected_live_mpp <= 1e-6:
             return 1.0
         return min(1.0, abs(candidate.meters_per_pixel - expected_live_mpp) / expected_live_mpp)
+
+    @staticmethod
+    def _is_better_verification(current: VerificationResult, previous: VerificationResult) -> bool:
+        if current.valid != previous.valid:
+            return current.valid
+        if abs(current.structural_score - previous.structural_score) > 1e-6:
+            return current.structural_score > previous.structural_score
+        if current.inlier_count != previous.inlier_count:
+            return current.inlier_count > previous.inlier_count
+        if abs(current.inlier_ratio - previous.inlier_ratio) > 1e-6:
+            return current.inlier_ratio > previous.inlier_ratio
+        return current.reprojection_error < previous.reprojection_error
 
     @staticmethod
     def _combine_confidence(candidate: MapTileCandidate, verification: VerificationResult, scale_error: float) -> float:

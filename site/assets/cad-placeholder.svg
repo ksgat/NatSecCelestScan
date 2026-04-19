@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" role="img" aria-labelledby="title desc">
+  <title id="title">CAD placeholder</title>
+  <desc id="desc">Placeholder graphic for Kestrel CAD or exploded mechanical render.</desc>
+  <rect width="900" height="700" fill="#eef1ea"/>
+  <rect x="48" y="48" width="804" height="604" fill="#fbfcf8" stroke="#d4d9cf" stroke-width="4"/>
+  <g fill="none" stroke="#195a74" stroke-width="6">
+    <rect x="216" y="170" width="260" height="140"/>
+    <rect x="280" y="352" width="132" height="84"/>
+    <rect x="518" y="198" width="112" height="112"/>
+    <line x1="476" y1="240" x2="518" y2="240"/>
+    <line x1="346" y1="310" x2="346" y2="352"/>
+    <line x1="630" y1="310" x2="680" y2="352"/>
+  </g>
+  <g fill="#ca6e2d" opacity="0.18">
+    <rect x="216" y="170" width="260" height="140"/>
+    <rect x="518" y="198" width="112" height="112"/>
+  </g>
+  <text x="84" y="108" fill="#5f6964" font-family="IBM Plex Mono, monospace" font-size="24">MEDIA SLOT / CAD</text>
+  <text x="84" y="584" fill="#18211e" font-family="Space Grotesk, sans-serif" font-size="42" font-weight="700">Drop in CAD, render, or diagram here</text>
+  <text x="84" y="626" fill="#5f6964" font-family="Space Grotesk, sans-serif" font-size="24">Exploded view, labeled subsystem layout, or enclosure render.</text>
+</svg>

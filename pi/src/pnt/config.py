@@ -80,6 +80,10 @@ class MapCollectionConfig:
     corner_quality_level: float = 0.01
     corner_min_distance_px: float = 7.0
     down_camera_fov_deg: float = 90.0
+    subtile_search_enabled: bool = True
+    subtile_top_tile_count: int = 3
+    subtile_scale_factors: tuple[float, ...] = (0.85, 1.0, 1.2)
+    subtile_min_size_px: int = 96
 
 
 @dataclass

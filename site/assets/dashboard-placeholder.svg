@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">Dashboard placeholder</title>
+  <desc id="desc">Placeholder graphic for a Kestrel dashboard screenshot.</desc>
+  <rect width="1200" height="780" fill="#ecefe8"/>
+  <rect x="34" y="34" width="1132" height="712" fill="#fdfdf9" stroke="#d6d9cf" stroke-width="4"/>
+  <rect x="74" y="80" width="320" height="620" fill="#f7f7f1" stroke="#d6d9cf" stroke-width="3"/>
+  <rect x="422" y="80" width="704" height="420" fill="#f7f7f1" stroke="#d6d9cf" stroke-width="3"/>
+  <rect x="422" y="524" width="704" height="176" fill="#f7f7f1" stroke="#d6d9cf" stroke-width="3"/>
+  <g transform="translate(458 116)">
+    <rect x="0" y="0" width="632" height="348" fill="#dfe7df"/>
+    <path d="M0 298 L110 214 L220 236 L332 162 L434 198 L632 86 L632 348 L0 348 Z" fill="#195a74" opacity="0.62"/>
+    <path d="M0 326 L132 260 L238 284 L360 206 L472 240 L632 170 L632 348 L0 348 Z" fill="#ca6e2d" opacity="0.62"/>
+    <circle cx="348" cy="184" r="12" fill="#ca6e2d"/>
+    <line x1="348" y1="184" x2="402" y2="160" stroke="#ca6e2d" stroke-width="4"/>
+  </g>
+  <g fill="#ffffff" stroke="#d6d9cf" stroke-width="3">
+    <rect x="98" y="112" width="272" height="92"/>
+    <rect x="98" y="226" width="272" height="132"/>
+    <rect x="98" y="382" width="272" height="92"/>
+    <rect x="98" y="498" width="272" height="170"/>
+    <rect x="456" y="554" width="206" height="118"/>
+    <rect x="686" y="554" width="206" height="118"/>
+    <rect x="916" y="554" width="174" height="118"/>
+  </g>
+  <text x="76" y="66" fill="#5f6964" font-family="IBM Plex Mono, monospace" font-size="22">MEDIA SLOT / DASHBOARD SCREENSHOT</text>
+  <text x="76" y="736" fill="#18211e" font-family="Space Grotesk, sans-serif" font-size="40" font-weight="700">Replace with a real field-test dashboard capture</text>
+</svg>

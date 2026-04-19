@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Kestrel hero placeholder</title>
+  <desc id="desc">Abstract placeholder for the Kestrel unit hero image.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f5f3eb"/>
+      <stop offset="1" stop-color="#ece8dc"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#195a74"/>
+      <stop offset="1" stop-color="#ca6e2d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="170" cy="160" r="150" fill="#195a74" opacity="0.08"/>
+  <circle cx="1010" cy="160" r="180" fill="#ca6e2d" opacity="0.09"/>
+  <rect x="140" y="150" width="920" height="560" fill="#fffdf8" stroke="#d8d4c8" stroke-width="4"/>
+  <g transform="translate(220 250)">
+    <rect x="0" y="0" width="560" height="250" fill="#ffffff" stroke="#d8d4c8" stroke-width="4"/>
+    <rect x="52" y="50" width="456" height="150" fill="url(#panel)" opacity="0.12" stroke="#cfc8b8" stroke-width="3"/>
+    <rect x="118" y="72" width="322" height="106" fill="#18211e" opacity="0.9"/>
+    <circle cx="74" cy="74" r="34" fill="#195a74"/>
+    <circle cx="486" cy="74" r="34" fill="#ca6e2d"/>
+    <rect x="176" y="214" width="204" height="24" fill="#d5d0c2"/>
+  </g>
+  <g transform="translate(735 230)">
+    <rect x="0" y="0" width="165" height="165" fill="#ffffff" stroke="#d8d4c8" stroke-width="4"/>
+    <circle cx="82.5" cy="82.5" r="44" fill="#195a74" opacity="0.92"/>
+    <circle cx="82.5" cy="82.5" r="20" fill="#ffffff"/>
+  </g>
+  <g transform="translate(785 430)">
+    <rect x="0" y="0" width="80" height="170" fill="#ffffff" stroke="#d8d4c8" stroke-width="4"/>
+    <rect x="14" y="18" width="52" height="112" fill="#ca6e2d" opacity="0.24"/>
+    <rect x="22" y="138" width="36" height="14" fill="#d5d0c2"/>
+  </g>
+  <text x="140" y="95" fill="#5f6964" font-family="Space Grotesk, sans-serif" font-size="28" letter-spacing="8">KESTREL</text>
+  <text x="140" y="790" fill="#18211e" font-family="Space Grotesk, sans-serif" font-size="56" font-weight="700">Rig photo placeholder</text>
+  <text x="140" y="835" fill="#5f6964" font-family="IBM Plex Mono, monospace" font-size="24">Replace with a real unit photo, field capture, or polished render.</text>
+</svg>
