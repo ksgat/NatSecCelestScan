@@ -1,4 +1,4 @@
-wfrom __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import threading
@@ -232,7 +232,7 @@ def main() -> None:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--cam0", type=int, default=0)
-    parser.add_argument("--cam1", type=int, default=1)
+    parser.add_argument("--cam1", type=int, default=2)
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=480)
     args = parser.parse_args()
