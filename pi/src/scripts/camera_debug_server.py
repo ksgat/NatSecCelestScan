@@ -4,75 +4,19 @@ import argparse
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import cv2
 import numpy as np
 
+import sys
 
-class CameraStream:
-    def __init__(self, camera_id: int, width: int = 640, height: int = 480) -> None:
-        self.camera_id = camera_id
-        self.width = width
-        self.height = height
-        self._cap = cv2.VideoCapture(camera_id)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self._lock = threading.Lock()
-        self._frame = None
-        self._running = False
-        self._thread: threading.Thread | None = None
-        self._last_ok = False
-        self._last_error = ""
+SRC_ROOT = Path(__file__).resolve().parents[1]
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-    def start(self) -> None:
-        if self._running:
-            return
-        self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=1.0)
-        self._cap.release()
-
-    def get_frame(self):
-        with self._lock:
-            return None if self._frame is None else self._frame.copy()
-
-    def status(self) -> dict[str, object]:
-        return {
-            "camera_id": self.camera_id,
-            "ok": self._last_ok,
-            "error": self._last_error,
-            "width": self.width,
-            "height": self.height,
-        }
-
-    def _run(self) -> None:
-        while self._running:
-            ok, frame = self._cap.read()
-            if ok and frame is not None:
-                annotated = frame.copy()
-                cv2.putText(
-                    annotated,
-                    f"cam{self.camera_id} {time.strftime('%H:%M:%S')}",
-                    (10, 25),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2,
-                    cv2.LINE_AA,
-                )
-                with self._lock:
-                    self._frame = annotated
-                self._last_ok = True
-                self._last_error = ""
-            else:
-                self._last_ok = False
-                self._last_error = "read failed"
-            time.sleep(0.03)
+from pnt.config import NavConfig
+from pnt.camera import CameraCapture
 
 
 def encode_jpeg(frame) -> bytes:
@@ -88,12 +32,27 @@ def placeholder_frame(label: str, width: int = 640, height: int = 480):
     return frame
 
 
-def build_status(cam0: CameraStream, cam1: CameraStream) -> str:
+def annotate_frame(frame, label: str):
+    annotated = frame.copy()
+    cv2.putText(
+        annotated,
+        f"{label} {time.strftime('%H:%M:%S')}",
+        (10, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA,
+    )
+    return annotated
+
+
+def build_status(cam0: CameraCapture, cam1: CameraCapture) -> str:
     s0 = cam0.status()
     s1 = cam1.status()
     return (
-        f"cam0: ok={s0['ok']} error={s0['error']} size={s0['width']}x{s0['height']}\n"
-        f"cam1: ok={s1['ok']} error={s1['error']} size={s1['width']}x{s1['height']}\n"
+        f"cam0 ({s0.label} /dev/video{s0.camera_id}): ok={s0.ok} error={s0.error} size={s0.width}x{s0.height} fps={s0.fps:.2f}\n"
+        f"cam1 ({s1.label} /dev/video{s1.camera_id}): ok={s1.ok} error={s1.error} size={s1.width}x{s1.height} fps={s1.fps:.2f}\n"
         f"time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
     )
 
@@ -134,11 +93,15 @@ class CameraDebugHandler(BaseHTTPRequestHandler):
 
     def _cam0_frame(self):
         frame = type(self).cam0.get_frame()
-        return frame if frame is not None else placeholder_frame("cam0 unavailable")
+        if frame is None:
+            return placeholder_frame("cam0 unavailable")
+        return annotate_frame(frame, f"{type(self).cam0.label} /dev/video{type(self).cam0.camera_id}")
 
     def _cam1_frame(self):
         frame = type(self).cam1.get_frame()
-        return frame if frame is not None else placeholder_frame("cam1 unavailable")
+        if frame is None:
+            return placeholder_frame("cam1 unavailable")
+        return annotate_frame(frame, f"{type(self).cam1.label} /dev/video{type(self).cam1.camera_id}")
 
     def _stereo_frame(self):
         left = type(self).cam0.get_frame()
@@ -214,6 +177,7 @@ class CameraDebugHandler(BaseHTTPRequestHandler):
 </head>
 <body>
   <h1>Camera Debug</h1>
+  <p>Defaults come from <code>pnt.config.NavConfig</code>.</p>
   <p>Still images: <code>/cam0.jpg</code> <code>/cam1.jpg</code> <code>/stereo.jpg</code></p>
   <p>MJPEG streams: <code>/stream/cam0</code> <code>/stream/cam1</code> <code>/stream/stereo</code></p>
   <p><a href="/health" target="_blank">health</a></p>
@@ -228,17 +192,20 @@ class CameraDebugHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    cfg = NavConfig()
     parser = argparse.ArgumentParser(description="Simple HTTP camera debug server.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--cam0", type=int, default=0)
-    parser.add_argument("--cam1", type=int, default=1)
-    parser.add_argument("--width", type=int, default=640)
-    parser.add_argument("--height", type=int, default=480)
+    parser.add_argument("--cam0", type=int, default=cfg.camera.cam0_id)
+    parser.add_argument("--cam1", type=int, default=cfg.camera.cam1_id)
+    parser.add_argument("--width", type=int, default=cfg.camera.width)
+    parser.add_argument("--height", type=int, default=cfg.camera.height)
     args = parser.parse_args()
 
-    cam0 = CameraStream(args.cam0, args.width, args.height)
-    cam1 = CameraStream(args.cam1, args.width, args.height)
+    cam0_label = f"cam0:{cfg.camera.cam0_label}"
+    cam1_label = f"cam1:{cfg.camera.cam1_label}"
+    cam0 = CameraCapture(args.cam0, cam0_label, args.width, args.height, cfg.camera.poll_interval_s)
+    cam1 = CameraCapture(args.cam1, cam1_label, args.width, args.height, cfg.camera.poll_interval_s)
     cam0.start()
     cam1.start()
     CameraDebugHandler.cam0 = cam0

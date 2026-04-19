@@ -7,11 +7,23 @@ Thumbs.db
 *.csv
 *.log
 
+.pytest_cache/
+
 external/tetra3/debug/
 external/tetra3/__pycache__/
 external/tetra3/.pytest_cache/
 
-pi/src/assets/test_images/night_sky/*
+# Large sample image dirs (keep README tracked)
+pi/src/assets/test_images/night_sky/**
 !pi/src/assets/test_images/night_sky/README.md
-pi/src/assets/test_images/ground/*
+pi/src/assets/test_images/ground/**
 !pi/src/assets/test_images/ground/README.md
+
+# Virtual envs anywhere under the repo
+.venv/
+
+dino_commands.txt
+dash/data/
+
+pi/src/assets/N16_79.2025.MrSID/
+pi/src/assets/tiles-*/

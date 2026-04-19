@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phone NMEA Recorder</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <style>
+    :root {
+      --bg: #eef0eb;
+      --card: #ffffff;
+      --ink: #1a2320;
+      --muted: #5d6964;
+      --accent: #195a74;
+      --accent-2: #ca6e2d;
+      --line: rgba(26, 35, 32, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .shell {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .muted {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--accent-2);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    #map {
+      width: 100%;
+      height: 44vh;
+      min-height: 320px;
+      border: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .status {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: #fafbf9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="card topbar">
+      <div>
+        <h1>Phone NMEA Recorder</h1>
+        <p class="muted">Uses browser geolocation, plots live position on Leaflet, and records GGA/RMC lines.</p>
+      </div>
+      <div class="controls">
+        <button id="start-btn">Start</button>
+        <button id="stop-btn" class="secondary" disabled>Stop</button>
+        <button id="download-btn" disabled>Download Log</button>
+        <button id="clear-btn" class="secondary">Clear</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="map"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Live Status</h2>
+        <pre id="status-box" class="status">Idle.</pre>
+      </section>
+      <section class="card">
+        <h2>NMEA Log</h2>
+        <pre id="log-box" class="status">No fixes recorded.</pre>
+      </section>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const map = L.map("map").setView([38.8462, -77.3064], 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    const startBtn = document.getElementById("start-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const downloadBtn = document.getElementById("download-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const statusBox = document.getElementById("status-box");
+    const logBox = document.getElementById("log-box");
+
+    let watchId = null;
+    let marker = null;
+    let trail = null;
+    let hasCentered = false;
+    let previousFix = null;
+    let sentences = [];
+    let points = [];
+
+    function checksum(sentenceBody) {
+      let value = 0;
+      for (const char of sentenceBody) {
+        value ^= char.charCodeAt(0);
+      }
+      return value.toString(16).toUpperCase().padStart(2, "0");
+    }
+
+    function formatLat(lat) {
+      const hemisphere = lat >= 0 ? "N" : "S";
+      const abs = Math.abs(lat);
+      const degrees = Math.trunc(abs);
+      const minutes = (abs - degrees) * 60.0;
+      return [`${String(degrees).padStart(2, "0")}${minutes.toFixed(4).padStart(7, "0")}`, hemisphere];
+    }
+
+    function formatLon(lon) {
+      const hemisphere = lon >= 0 ? "E" : "W";
+      const abs = Math.abs(lon);
+      const degrees = Math.trunc(abs);
+      const minutes = (abs - degrees) * 60.0;
+      return [`${String(degrees).padStart(3, "0")}${minutes.toFixed(4).padStart(7, "0")}`, hemisphere];
+    }
+
+    function utcHhmmss(date) {
+      const hh = String(date.getUTCHours()).padStart(2, "0");
+      const mm = String(date.getUTCMinutes()).padStart(2, "0");
+      const ss = String(date.getUTCSeconds()).padStart(2, "0");
+      return `${hh}${mm}${ss}`;
+    }
+
+    function utcDdMmYy(date) {
+      const dd = String(date.getUTCDate()).padStart(2, "0");
+      const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const yy = String(date.getUTCFullYear()).slice(-2);
+      return `${dd}${mm}${yy}`;
+    }
+
+    function formatGPGGA({ lat, lon, altM, fixQuality = 1, satellites = 8, timestampMs }) {
+      const [latValue, latHemisphere] = formatLat(lat);
+      const [lonValue, lonHemisphere] = formatLon(lon);
+      const hhmmss = utcHhmmss(new Date(timestampMs));
+      const body = `GPGGA,${hhmmss},${latValue},${latHemisphere},${lonValue},${lonHemisphere},${fixQuality},${satellites},1.0,${altM.toFixed(1)},M,,,`;
+      return `$${body}*${checksum(body)}`;
+    }
+
+    function formatGPRMC({ lat, lon, headingDeg, speedKnots, valid = true, timestampMs }) {
+      const [latValue, latHemisphere] = formatLat(lat);
+      const [lonValue, lonHemisphere] = formatLon(lon);
+      const date = new Date(timestampMs);
+      const hhmmss = utcHhmmss(date);
+      const ddmmyy = utcDdMmYy(date);
+      const body = `GPRMC,${hhmmss},${valid ? "A" : "V"},${latValue},${latHemisphere},${lonValue},${lonHemisphere},${speedKnots.toFixed(1)},${headingDeg.toFixed(1)},${ddmmyy},,,`;
+      return `$${body}*${checksum(body)}`;
+    }
+
+    function haversineMeters(lat1, lon1, lat2, lon2) {
+      const radiusM = 6371000.0;
+      const toRad = Math.PI / 180.0;
+      const phi1 = lat1 * toRad;
+      const phi2 = lat2 * toRad;
+      const dPhi = (lat2 - lat1) * toRad;
+      const dLambda = (lon2 - lon1) * toRad;
+      const a = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
+      return 2 * radiusM * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(1e-12, 1 - a)));
+    }
+
+    function bearingDegrees(lat1, lon1, lat2, lon2) {
+      const toRad = Math.PI / 180.0;
+      const toDeg = 180.0 / Math.PI;
+      const phi1 = lat1 * toRad;
+      const phi2 = lat2 * toRad;
+      const lambda1 = lon1 * toRad;
+      const lambda2 = lon2 * toRad;
+      const y = Math.sin(lambda2 - lambda1) * Math.cos(phi2);
+      const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1);
+      return (Math.atan2(y, x) * toDeg + 360.0) % 360.0;
+    }
+
+    function updateMap(lat, lon) {
+      const latLng = [lat, lon];
+      if (!marker) {
+        marker = L.circleMarker(latLng, {
+          radius: 8,
+          color: "#195a74",
+          weight: 2,
+          fillColor: "#ca6e2d",
+          fillOpacity: 0.95,
+        }).addTo(map);
+      } else {
+        marker.setLatLng(latLng);
+      }
+
+      points.push(latLng);
+      if (!trail) {
+        trail = L.polyline(points, { color: "#ca6e2d", weight: 3 }).addTo(map);
+      } else {
+        trail.setLatLngs(points);
+      }
+
+      if (!hasCentered) {
+        hasCentered = true;
+        map.setView(latLng, 17);
+      }
+    }
+
+    function updateLogView() {
+      if (!sentences.length) {
+        logBox.textContent = "No fixes recorded.";
+        return;
+      }
+      const visible = sentences.slice(-120);
+      logBox.textContent = visible.join("\n");
+    }
+
+    function updateStatus(fix) {
+      statusBox.textContent = [
+        `recording=${watchId !== null}`,
+        `fixes=${Math.floor(sentences.length / 2)}`,
+        `lat=${fix.lat.toFixed(6)}`,
+        `lon=${fix.lon.toFixed(6)}`,
+        `alt_m=${fix.altM.toFixed(1)}`,
+        `heading_deg=${fix.headingDeg.toFixed(1)}`,
+        `speed_knots=${fix.speedKnots.toFixed(1)}`,
+        `accuracy_m=${fix.accuracyM.toFixed(1)}`,
+        `timestamp=${new Date(fix.timestampMs).toISOString()}`,
+      ].join("\n");
+    }
+
+    function appendFix(position) {
+      const coords = position.coords;
+      const lat = coords.latitude;
+      const lon = coords.longitude;
+      const timestampMs = position.timestamp || Date.now();
+      const altM = Number.isFinite(coords.altitude) ? coords.altitude : 0.0;
+      const accuracyM = Number.isFinite(coords.accuracy) ? coords.accuracy : 0.0;
+
+      let headingDeg = Number.isFinite(coords.heading) ? coords.heading : NaN;
+      let speedMps = Number.isFinite(coords.speed) ? coords.speed : NaN;
+
+      if (previousFix) {
+        const dtS = Math.max(1e-3, (timestampMs - previousFix.timestampMs) / 1000.0);
+        const distanceM = haversineMeters(previousFix.lat, previousFix.lon, lat, lon);
+        if (!Number.isFinite(speedMps)) {
+          speedMps = distanceM / dtS;
+        }
+        if (!Number.isFinite(headingDeg) && distanceM >= 1.0) {
+          headingDeg = bearingDegrees(previousFix.lat, previousFix.lon, lat, lon);
+        }
+      }
+
+      if (!Number.isFinite(speedMps)) {
+        speedMps = 0.0;
+      }
+      if (!Number.isFinite(headingDeg)) {
+        headingDeg = 0.0;
+      }
+
+      const speedKnots = speedMps * 1.94384;
+      const fix = { lat, lon, altM, headingDeg, speedKnots, accuracyM, timestampMs };
+      const gga = formatGPGGA(fix);
+      const rmc = formatGPRMC(fix);
+
+      sentences.push(gga, rmc);
+      previousFix = fix;
+      updateMap(lat, lon);
+      updateStatus(fix);
+      updateLogView();
+      downloadBtn.disabled = false;
+    }
+
+    function handleError(error) {
+      statusBox.textContent = `error=${error.message || "geolocation failed"}\nBrowser geolocation usually requires HTTPS or localhost.`;
+    }
+
+    function startRecording() {
+      if (!("geolocation" in navigator)) {
+        statusBox.textContent = "Geolocation API is unavailable in this browser.";
+        return;
+      }
+      if (watchId !== null) {
+        return;
+      }
+      watchId = navigator.geolocation.watchPosition(
+        appendFix,
+        handleError,
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 15000,
+        }
+      );
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      statusBox.textContent = "Waiting for first fix...";
+    }
+
+    function stopRecording() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    function clearRecording() {
+      sentences = [];
+      previousFix = null;
+      points = [];
+      hasCentered = false;
+      if (marker) {
+        map.removeLayer(marker);
+        marker = null;
+      }
+      if (trail) {
+        map.removeLayer(trail);
+        trail = null;
+      }
+      updateLogView();
+      statusBox.textContent = "Idle.";
+      downloadBtn.disabled = true;
+    }
+
+    function downloadLog() {
+      if (!sentences.length) {
+        return;
+      }
+      const blob = new Blob([sentences.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      link.href = url;
+      link.download = `phone-nmea-${stamp}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    startBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+    clearBtn.addEventListener("click", clearRecording);
+    downloadBtn.addEventListener("click", downloadLog);
+  </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 
@@ -76,6 +77,29 @@ class GeoMatchResult:
     scale_error: float
     confidence: float
     source: str = "cached"
+    candidate_count: int = 0
+    verified: bool = False
+    structural_score: float = 0.0
+    tile_path: str = ""
+
+
+@dataclass
+class MapTileCandidate:
+    collection_id: str
+    path: Path
+    zoom: int
+    x: int
+    y: int
+    north: float
+    south: float
+    east: float
+    west: float
+    lat_center: float
+    lon_center: float
+    meters_per_pixel: float
+    embedding_score: float
+    distance_m: float = 0.0
+    source: str = "cached"
 
 
 @dataclass
@@ -138,4 +162,3 @@ class NavContext:
     ground_poor_since_s: float = 0.0
     loop_counter: int = 0
     debug: dict[str, object] = field(default_factory=dict)
-

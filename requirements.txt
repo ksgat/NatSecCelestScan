@@ -1,4 +1,5 @@
 numpy
+ahrs
 opencv-python
 smbus2
 RPi.GPIO

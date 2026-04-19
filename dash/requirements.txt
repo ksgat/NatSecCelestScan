@@ -1,0 +1,8 @@
+flask
+requests
+numpy
+Pillow
+safetensors
+torch
+torchvision
+transformers>=4.56.0

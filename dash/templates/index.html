@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NatSecCelestScan Dashboard</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <p class="eyebrow">NatSecCelestScan</p>
+        <h1>Mission Tile Cache</h1>
+        <p class="lede">Select an area, cache local tiles, and keep map collection work organized before geo-match exists.</p>
+      </div>
+      <div class="topbar-cards">
+        <div class="micro-card">
+          <span class="micro-label">Mode</span>
+          <strong>Tile Planning</strong>
+        </div>
+        <div class="micro-card">
+          <span class="micro-label">Map Source</span>
+          <strong id="active-source-label">Fairfax 2025 Ortho</strong>
+        </div>
+        <div class="micro-card">
+          <span class="micro-label">Output</span>
+          <strong>Local Collections</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="board">
+      <aside class="widget-column">
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Selection</p>
+              <h2>Mission Area</h2>
+            </div>
+            <span class="widget-tag">Bounds</span>
+          </div>
+          <div class="button-row">
+            <button id="start-selection">Box Select</button>
+            <button id="clear-selection" class="secondary">Clear</button>
+          </div>
+          <div class="button-row compact">
+            <button data-miles="5" class="preset-range ghost">5x5 mi</button>
+            <button data-miles="10" class="preset-range ghost">10x10 mi</button>
+            <button data-miles="20" class="preset-range ghost">20x20 mi</button>
+          </div>
+          <pre id="selection-summary" class="status-box">No area selected.</pre>
+        </section>
+
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Telemetry</p>
+              <h2>Live Rig</h2>
+            </div>
+            <span class="widget-tag">UDP</span>
+          </div>
+          <pre id="telemetry-status" class="status-box">Waiting for NMEA.</pre>
+          <pre id="imu-status" class="status-box">Waiting for IMU debug.</pre>
+          <div class="field-grid two-up">
+            <label>
+              Camera Host Override
+              <input id="camera-host" type="text" placeholder="auto from telemetry">
+            </label>
+            <label>
+              Camera Port
+              <input id="camera-port" type="number" min="1" max="65535" value="8080">
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="refresh-cameras" class="secondary">Refresh Cameras</button>
+          </div>
+          <div class="camera-grid">
+            <div class="camera-card">
+              <p class="camera-label">cam0</p>
+              <img id="cam0-stream" alt="cam0 stream">
+            </div>
+            <div class="camera-card">
+              <p class="camera-label">cam1</p>
+              <img id="cam1-stream" alt="cam1 stream">
+            </div>
+          </div>
+        </section>
+
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Download</p>
+              <h2>Tile Job</h2>
+            </div>
+            <span class="widget-tag">Cache</span>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Imagery Source
+              <select id="source-preset"></select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Collection Name
+              <input id="collection-name" type="text" placeholder="mission-area-west">
+            </label>
+            <label>
+              Tile URL Template
+              <input id="tile-url-template" type="text" value="https://tile.openstreetmap.org/{z}/{x}/{y}.png">
+            </label>
+          </div>
+
+          <pre id="source-status" class="status-box">No imagery source selected.</pre>
+
+          <div class="field-grid two-up">
+            <label>
+              Min Zoom
+              <input id="min-zoom" type="number" min="0" max="23" value="14">
+            </label>
+            <label>
+              Max Zoom
+              <input id="max-zoom" type="number" min="0" max="23" value="17">
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="estimate-download" class="secondary">Estimate</button>
+            <button id="start-download">Download</button>
+          </div>
+          <pre id="download-status" class="status-box">Idle.</pre>
+        </section>
+
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Library</p>
+              <h2>Collections</h2>
+            </div>
+            <span class="widget-tag">Preview</span>
+          </div>
+          <div id="collections-list" class="collections-list"></div>
+        </section>
+
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Embeddings</p>
+              <h2>DINO Index</h2>
+            </div>
+            <span class="widget-tag">Retrieve</span>
+          </div>
+          <div class="field-grid">
+            <label>
+              Selected Collection
+              <input id="embed-collection-id" type="text" readonly placeholder="pick a cached collection">
+            </label>
+            <label>
+              Model
+              <input id="embed-model-name" type="text" placeholder="facebook/dinov3-vitl16-pretrain-sat493m">
+            </label>
+          </div>
+          <div class="field-grid two-up">
+            <label>
+              Device
+              <input id="embed-device" type="text" value="auto">
+            </label>
+            <label>
+              Batch Size
+              <input id="embed-batch-size" type="number" min="1" value="4">
+            </label>
+          </div>
+          <div class="field-grid two-up">
+            <label>
+              Tile Limit
+              <input id="embed-limit" type="number" min="0" value="0">
+            </label>
+            <label class="checkbox-field">
+              Overwrite Existing Index
+              <input id="embed-overwrite" type="checkbox">
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="start-embed" class="secondary prominent">Embed Selected Collection</button>
+          </div>
+          <pre id="embed-status" class="status-box">Idle.</pre>
+        </section>
+
+        <section class="widget widget-note">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Ops</p>
+              <h2>Notes</h2>
+            </div>
+            <span class="widget-tag">Future</span>
+          </div>
+          <p class="note-text">This shell is intentionally widget-driven so telemetry, NMEA ingest, tile validation, and geo-match tooling can be added without reworking the whole page.</p>
+          <p class="note-text">Default OSM tiles are fine for light development. For bigger jobs, swap in a proper provider or your own raster source.</p>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section class="widget map-widget">
+          <div class="widget-head wide">
+            <div>
+              <p class="widget-kicker">Map</p>
+              <h2>Collection Workspace</h2>
+            </div>
+            <div class="map-meta">
+              <span class="map-pill" id="live-fix-pill">No live fix</span>
+              <a href="/api/collections" target="_blank" class="map-link">JSON</a>
+            </div>
+          </div>
+          <div id="map"></div>
+        </section>
+
+        <section class="widget">
+          <div class="widget-head">
+            <div>
+              <p class="widget-kicker">Diagnostics</p>
+              <h2>Runtime Data</h2>
+            </div>
+            <span class="widget-tag">Live</span>
+          </div>
+          <div class="diagnostics-grid">
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Nav State</p>
+              <pre id="nav-runtime-status" class="status-box">Waiting for debug data.</pre>
+            </div>
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Stereo</p>
+              <pre id="stereo-status" class="status-box">Waiting for stereo data.</pre>
+            </div>
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Visual Odometry</p>
+              <pre id="vo-status" class="status-box">Waiting for VO data.</pre>
+            </div>
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Geo Match</p>
+              <pre id="geo-status" class="status-box">Waiting for geo-match data.</pre>
+            </div>
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Map Runtime</p>
+              <pre id="map-runtime-status" class="status-box">Waiting for map/runtime data.</pre>
+            </div>
+            <div class="diagnostic-card">
+              <p class="diagnostic-label">Raw NMEA</p>
+              <pre id="nmea-raw-status" class="status-box">Waiting for NMEA.</pre>
+            </div>
+            <div class="diagnostic-card diagnostic-card-wide">
+              <p class="diagnostic-label">Raw Debug Packet</p>
+              <pre id="debug-packet-status" class="status-box">Waiting for debug packet.</pre>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
